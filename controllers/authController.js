@@ -473,23 +473,45 @@ exports.deletePhoto = async (req, res) => {
 };
 
 /**
- * Get all users
+ * Get all users with search and pagination
  */
 exports.getAllUsers = async (req, res) => {
   try {
-    const usersSnapshot = await db.collection("users").get();
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const search = req.query.search || "";
 
-    const users = [];
+    // Fetch all users
+    const usersSnapshot = await db.collection("users").orderBy("name").get();
+
+    let users = [];
     usersSnapshot.forEach((doc) => {
       const userData = doc.data();
       delete userData.password; // Never send passwords
-      users.push(userData);
+
+      // Apply search filter
+      if (
+        !search ||
+        userData.name.toLowerCase().includes(search.toLowerCase())
+      ) {
+        users.push(userData);
+      }
     });
+
+    const totalCount = users.length;
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedUsers = users.slice(startIndex, endIndex);
 
     res.status(200).json({
       success: true,
-      count: users.length,
-      data: { users },
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(totalCount / limit),
+        totalCount: totalCount,
+        limit: limit,
+      },
+      data: { users: paginatedUsers },
     });
   } catch (error) {
     console.error("Get all users error:", error);
@@ -500,3 +522,76 @@ exports.getAllUsers = async (req, res) => {
     });
   }
 };
+
+/**
+ * Get profile photo info
+ */
+exports.getPhotoInfo = async (req, res) => {
+  try {
+    const userDoc = await db.collection("users").doc(req.user.uid).get();
+
+    if (!userDoc.exists) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    const userData = userDoc.data();
+
+    if (!userData.photoPath) {
+      return res.status(404).json({
+        success: false,
+        message: "No profile photo found",
+      });
+    }
+
+    // Check if file exists
+    const photoFullPath = path.join(__dirname, "..", userData.photoPath);
+    const fileExists = fs.existsSync(photoFullPath);
+
+    if (!fileExists) {
+      return res.status(404).json({
+        success: false,
+        message: "Photo file not found",
+      });
+    }
+
+    // Get file stats
+    const stats = fs.statSync(photoFullPath);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        photoPath: userData.photoPath,
+        photoUrl: `http://${req.headers.host}${userData.photoPath}`,
+        filename: path.basename(userData.photoPath),
+        fileSize: stats.size,
+        mimeType: getMimeType(userData.photoPath),
+        uploadedAt: stats.birthtime,
+      },
+    });
+  } catch (error) {
+    console.error("Get photo info error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to get photo info",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Helper function to get MIME type from file extension
+ */
+function getMimeType(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  const mimeTypes = {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+  };
+  return mimeTypes[ext] || "application/octet-stream";
+}

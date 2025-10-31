@@ -375,10 +375,28 @@ router.delete("/profile/photo", verifyToken, authController.deletePhoto);
  * @swagger
  * /api/auth/users:
  *   get:
- *     summary: Get all users
+ *     summary: Get all users with search and pagination
  *     tags: [Profile]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of users per page
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search users by name (case-insensitive substring search)
  *     responses:
  *       200:
  *         description: Users retrieved successfully
@@ -390,9 +408,21 @@ router.delete("/profile/photo", verifyToken, authController.deletePhoto);
  *                 success:
  *                   type: boolean
  *                   example: true
- *                 count:
- *                   type: integer
- *                   example: 10
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     currentPage:
+ *                       type: integer
+ *                       example: 1
+ *                     totalPages:
+ *                       type: integer
+ *                       example: 3
+ *                     totalCount:
+ *                       type: integer
+ *                       example: 25
+ *                     limit:
+ *                       type: integer
+ *                       example: 10
  *                 data:
  *                   type: object
  *                   properties:
@@ -414,5 +444,66 @@ router.delete("/profile/photo", verifyToken, authController.deletePhoto);
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.get("/users", verifyToken, authController.getAllUsers);
+
+/**
+ * @swagger
+ * /api/auth/profile/photo:
+ *   get:
+ *     summary: Get profile photo info
+ *     tags: [Profile]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Photo info retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     photoPath:
+ *                       type: string
+ *                       example: /uploads/user_abc123_1234567890.jpg
+ *                     photoUrl:
+ *                       type: string
+ *                       example: http://localhost:3000/uploads/user_abc123_1234567890.jpg
+ *                     filename:
+ *                       type: string
+ *                       example: user_abc123_1234567890.jpg
+ *                     fileSize:
+ *                       type: integer
+ *                       example: 245678
+ *                     mimeType:
+ *                       type: string
+ *                       example: image/jpeg
+ *                     uploadedAt:
+ *                       type: string
+ *                       format: date-time
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: Photo not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.get("/profile/photo", verifyToken, authController.getPhotoInfo);
 
 module.exports = router;
